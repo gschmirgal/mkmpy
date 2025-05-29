@@ -1,5 +1,6 @@
 #csv stored
 csvtemp/*
+!csvtemp/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

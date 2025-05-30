@@ -59,8 +59,6 @@ def create_prices_csv():
     for priceGuide in priceGuides:
 
         newPriceGuide = {"id": 0}
-
-
         for key in ["idProduct", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil"]:
             if key not in priceGuide:
                 priceGuide[key] = None
@@ -68,7 +66,6 @@ def create_prices_csv():
             newPriceGuide[key] = priceGuide[key]
         
         newPriceGuide["date"] = createdAt
-
         f_prices.write( csvify( newPriceGuide ) )
 
     return createdAt
@@ -92,7 +89,7 @@ def create_expansions_csv():
     soup = BeautifulSoup(html, "html.parser")
     select = soup.find('select', attrs={'name': name})
     if not select:
-        return []
+        return 0
     # Extraire les options du select
     for option in select.find_all('option'):
         value = option.get('value')

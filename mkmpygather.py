@@ -1,6 +1,3 @@
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 import time
@@ -19,7 +16,16 @@ def fetch_and_parse_json(url):
         print(f"Erreur lors de la conversion en JSON : {e}")
 
 def csvify(values):
-    return '"'+'";"'.join(str(x) for x in values.values()) + '"\n'
+    csvline = ""
+    for key in values:
+        if values[key] is None:
+            csvline += 'NULL;'
+        elif( isinstance(values[key], int) or isinstance(values[key], float) or values[key].isnumeric()  ):
+            csvline += f'{values[key]};'
+        else:
+            csvline += f'"{str(values[key]).replace("\"", "\"\"")}";'
+
+    return f'{csvline}\n'
 
 
 def create_product_csv():
@@ -37,6 +43,8 @@ def create_product_csv():
         product.pop("idCategory")
         f_products.write( csvify(product) )
 
+    return createdAt
+
 
 def create_prices_csv():
     url = "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json"  
@@ -49,9 +57,21 @@ def create_prices_csv():
     f_prices = open("csvtemp/prices_file.csv", "w", encoding="utf-8")
 
     for priceGuide in priceGuides:
-        priceGuide.pop("idCategory")
-        priceGuide["date"] = createdAt
-        f_prices.write( csvify( priceGuide ))
+
+        newPriceGuide = {"id": 0}
+
+
+        for key in ["idProduct", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil"]:
+            if key not in priceGuide:
+                priceGuide[key] = None
+
+            newPriceGuide[key] = priceGuide[key]
+        
+        newPriceGuide["date"] = createdAt
+
+        f_prices.write( csvify( newPriceGuide ) )
+
+    return createdAt
 
 def create_expansions_csv():
     url = "https://www.cardmarket.com/fr/Magic/Products/Singles"
@@ -77,16 +97,9 @@ def create_expansions_csv():
     for option in select.find_all('option'):
         value = option.get('value')
         text = option.text.strip()
-        #f_expansions.write( '"' + value + '";"' + text + '"\n')
         if value != "0":
             f_expansions.write( csvify( {1:value, 2:text} ) )
 
 
     driver.quit()
-
-
-
-
-create_product_csv()
-create_prices_csv()
-create_expansions_csv()
+    return 1

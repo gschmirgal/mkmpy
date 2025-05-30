@@ -8,9 +8,8 @@ dateImportFile = mkmpygather.create_prices_csv()
 
 db = dbMkmPy()
 
-sql = "SELECT max(dateImportFile) FROM logs WHERE 1"
+sql = "SELECT max(dateImportFile) FROM logs WHERE status = 'OK'"
 lastDateImportFile = db.execute_query(sql)
-
 
 now = datetime.datetime.now()
 

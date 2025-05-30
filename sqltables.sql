@@ -64,6 +64,12 @@ CREATE TABLE `products` (
   `dateAdded` datetime NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--init table logs
+
+INSERT INTO `logs` (`id`, `dateImport`, `dateImportFile`, `status`) VALUES
+(1, '2025-01-01 00:00:00', '2024-12-31 23:00:00', 'OK');
+
+
 --
 -- Index pour les tables déchargées
 --

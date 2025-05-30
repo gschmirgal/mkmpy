@@ -43,6 +43,8 @@ def create_product_csv():
         product.pop("idCategory")
         f_products.write( csvify(product) )
 
+    f_products.close()
+
     return createdAt
 
 
@@ -68,6 +70,8 @@ def create_prices_csv():
         newPriceGuide["date"] = createdAt
         f_prices.write( csvify( newPriceGuide ) )
 
+    f_prices.close()
+
     return createdAt
 
 def create_expansions_csv():
@@ -79,24 +83,26 @@ def create_expansions_csv():
     options = uc.ChromeOptions()
     options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
     driver = uc.Chrome(options=options, headless=True)
+    try:
+        driver.get(url)
 
-    driver.get(url)
+        # Wait for Cloudflare challenge (increase if needed)
+        time.sleep(10)
 
-    # Wait for Cloudflare challenge (increase if needed)
-    time.sleep(10)
+        html = driver.page_source
+        soup = BeautifulSoup(html, "html.parser")
+        select = soup.find('select', attrs={'name': name})
+        if not select:
+            return 0
+        # Extraire les options du select
+        for option in select.find_all('option'):
+            value = option.get('value')
+            text = option.text.strip()
+            if value != "0":
+                f_expansions.write( csvify( {1:value, 2:text} ) )
+        pass
+    finally:
+        f_expansions.close()
+        driver.quit()
 
-    html = driver.page_source
-    soup = BeautifulSoup(html, "html.parser")
-    select = soup.find('select', attrs={'name': name})
-    if not select:
-        return 0
-    # Extraire les options du select
-    for option in select.find_all('option'):
-        value = option.get('value')
-        text = option.text.strip()
-        if value != "0":
-            f_expansions.write( csvify( {1:value, 2:text} ) )
-
-
-    driver.quit()
     return 1

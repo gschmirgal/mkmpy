@@ -1,4 +1,4 @@
-import time
+import datetime
 from mkmpymysql import dbMkmPy
 import mkmpygather
 
@@ -8,7 +8,21 @@ dateImportFile = mkmpygather.create_prices_csv()
 
 db = dbMkmPy()
 
-sql = "INSERT INTO logs (dateImport, dateImportFile,status) VALUES ('"+time.strftime('%Y-%m-%d %H:%M:%S')+"', '"+dateImportFile+"', 'OK')"
+sql = "SELECT max(dateImportFile) FROM logs WHERE 1"
+lastDateImportFile = db.execute_query(sql)
+
+
+now = datetime.datetime.now()
+
+yesterday = (now - datetime.timedelta(days=1))
+
+if lastDateImportFile[0][0] > yesterday:
+    print("Nothing to do, last import is recent")
+    sql = f"INSERT INTO logs (dateImport, dateImportFile,status) VALUES ('{now.strftime('%Y-%m-%d %H:%M:%S')}', '{dateImportFile}', 'too early')"
+    db.execute_query(sql)
+    exit(0)
+
+sql = f"INSERT INTO logs (dateImport, dateImportFile,status) VALUES ('{now.strftime('%Y-%m-%d %H:%M:%S')}', '{dateImportFile}', 'OK')"
 db.execute_query(sql)
 
 db.import_csv_to_table("csvtemp/expansions_file.csv", "expansions", ";")

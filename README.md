@@ -21,6 +21,19 @@ Install dependencies with:
 pip install -r requirements.txt
 ```
 
+## Database Initialization
+Before running the project, you **must initialize your MySQL database** using the provided SQL schema:
+
+1. Open your MySQL client (Workbench, command line, etc.).
+2. Import the file `sqltables.sql` to create the necessary tables and structure:
+   ```sql
+   SOURCE path/to/sqltables.sql;
+   ```
+   Or, from the command line (PowerShell):
+   ```powershell
+   mysql -u youruser -p yourdb < sqltables.sql
+   ```
+
 ## Configuration
 1. Copy `config_template.ini` to `config.ini` and fill in your MySQL credentials:
    ```ini
@@ -46,11 +59,14 @@ This will:
 
 ## Project Structure
 - `launch.py` — Main script, orchestrates the workflow.
-- `mkmpygather.py` — Data fetching and CSV generation (API and web scraping).
-- `mkmpymysql.py` — MySQL connection manager and CSV import logic.
+- `mkmpy/gatherer.py` — Data fetching and CSV generation (API and web scraping).
+- `mkmpy/db.py` — MySQL connection manager and CSV import logic.
+- `mkmpy/log.py` — Logging and import control logic.
+- `mkmpy/lib.py` — Utility functions.
 - `csvtemp/` — Output directory for generated CSV files.
 - `requirements.txt` — Python dependencies.
 - `config.ini` — Database configuration (not versioned, use `config_template.ini`).
+- `sqltables.sql` — SQL schema to initialize the database (must be imported before first use).
 
 ## Notes
 - The project uses undetected_chromedriver to bypass Cloudflare. Make sure Chrome is installed and up to date.

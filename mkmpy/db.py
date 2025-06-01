@@ -1,6 +1,5 @@
 import configparser
 import mysql.connector
-import csv
 
 class MySQLConnectionManager:
     def __init__(self, host, user, password, database, port=3306):
@@ -19,7 +18,8 @@ class MySQLConnectionManager:
                 password=self.password,
                 database=self.database,
                 port=self.port,
-                allow_local_infile=True
+                allow_local_infile=True,  # Enables local infile on client side
+                autocommit=True           # Optional: ensures autocommit for LOAD DATA
             )
         return self.connection
 
@@ -28,14 +28,13 @@ class MySQLConnectionManager:
             self.connection.close()
             self.connection = None
 
-    def execute_query(self, query, params=None):
+    def query(self, query, params=None):
         conn = self.connect()
-        cursor = conn.cursor()
-        print (query)
+        cursor = conn.cursor(dictionary=True)  # Utilise un curseur qui retourne des dicts
         try:
             cursor.execute(query, params or ())
             if query.strip().lower().startswith("select"):
-                result = cursor.fetchall()
+                result = cursor.fetchall()  # Liste de dicts, indexés par nom de colonne
                 return result
             else:
                 conn.commit()
@@ -59,7 +58,12 @@ class MySQLConnectionManager:
             "LINES TERMINATED BY '\\n' "
             "IGNORE 0 LINES"
         )
-        self.execute_query(query)
+        self.query(query)
+
+    def get1value(self, query):
+        result = self.query(query)
+        if result and len(result) > 0:
+            return result[0][next(iter(result[0]))]
 
 
 

@@ -57,12 +57,11 @@ class gatherer:
         data = self.fetch_and_parse_json(self.urlProducts)
         createdAt = convert_to_datetime(data.get("createdAt"))
         products = data.get("products")
-        f_products = open("csvtemp/products_file.csv", "w", encoding="utf-8")
-        for product in products:
-            product.pop("categoryName")
-            product.pop("idCategory")
-            f_products.write( self.csvify(product) )
-        f_products.close()
+        with open("csvtemp/products_file.csv", "w", encoding="utf-8") as f_products:
+            for product in products:
+                product.pop("categoryName")
+                product.pop("idCategory")
+                f_products.write(self.csvify(product))
         return createdAt
 
 
@@ -73,43 +72,40 @@ class gatherer:
         self.dateData = yesterday(self.createdAt)
         dateDataStr = self.dateData.strftime('%Y-%m-%d')
         priceGuides = data.get("priceGuides")
-        f_prices = open("csvtemp/prices_file.csv", "w", encoding="utf-8")
-        for priceGuide in priceGuides:
-            newPriceGuide = {"id": 0}
-            priceGuide["idLog"] = self.idLog
-            priceGuide["dataDate"] = dateDataStr
-            for key in ["idProduct", "idLog", "dataDate", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil"]:
-                if key not in priceGuide:
-                    priceGuide[key] = None
-                newPriceGuide[key] = priceGuide[key]
-            f_prices.write( self.csvify( newPriceGuide ) )
-        f_prices.close()
+        with open("csvtemp/prices_file.csv", "w", encoding="utf-8") as f_prices:
+            for priceGuide in priceGuides:
+                newPriceGuide = {"id": 0}
+                priceGuide["idLog"] = self.idLog
+                priceGuide["dataDate"] = dateDataStr
+                for key in ["idProduct", "idLog", "dataDate", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil"]:
+                    if key not in priceGuide:
+                        priceGuide[key] = None
+                    newPriceGuide[key] = priceGuide[key]
+                f_prices.write(self.csvify(newPriceGuide))
         return self.createdAt
 
     def create_expansions_csv(self):
         # Scrape la page Cardmarket pour récupérer la liste des extensions et écrit un CSV
         name = "idExpansion"
-        f_expansions = open("csvtemp/expansions_file.csv", "w", encoding="utf-8")
-        options = uc.ChromeOptions()
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
-        driver = uc.Chrome(options=options, headless=True)
-        try:
-            driver.get(self.urlExpansions)
-            # Attend le challenge Cloudflare
-            time.sleep(10)
-            html = driver.page_source
-            soup = BeautifulSoup(html, "html.parser")
-            select = soup.find('select', attrs={'name': name})
-            if not select:
-                return 0
-            # Extrait les options du select et écrit dans le CSV
-            for option in select.find_all('option'):
-                value = option.get('value')
-                text = option.text.strip()
-                if value != "0":
-                    f_expansions.write( self.csvify( {1:value, 2:text} ) )
-            pass
-        finally:
-            f_expansions.close()
-            driver.quit()
+        with open("csvtemp/expansions_file.csv", "w", encoding="utf-8") as f_expansions:
+            options = uc.ChromeOptions()
+            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
+            driver = uc.Chrome(options=options, headless=True)
+            try:
+                driver.get(self.urlExpansions)
+                # Attend le challenge Cloudflare
+                time.sleep(10)
+                html = driver.page_source
+                soup = BeautifulSoup(html, "html.parser")
+                select = soup.find('select', attrs={'name': name})
+                if not select:
+                    return 0
+                # Extrait les options du select et écrit dans le CSV
+                for option in select.find_all('option'):
+                    value = option.get('value')
+                    text = option.text.strip()
+                    if value != "0":
+                        f_expansions.write(self.csvify({1: value, 2: text}))
+            finally:
+                driver.quit()
         return 1

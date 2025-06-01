@@ -1,3 +1,24 @@
+"""
+MKMPy - Cardmarket Data Importer
+
+Ce projet automatise la récupération, la transformation et l'importation des données produits, prix et extensions Magic: The Gathering depuis Cardmarket vers une base MySQL.
+
+Fonctionnalités principales :
+- Récupération de données via API et web scraping (contournement Cloudflare)
+- Génération de fichiers CSV intermédiaires
+- Import rapide en base MySQL
+- Système de log et contrôle d'exécution
+
+Structure :
+- mkmpy/db.py : gestion MySQL
+- mkmpy/gatherer.py : collecte et génération CSV
+- mkmpy/log.py : gestion du log d'import
+- mkmpy/lib.py : utilitaires
+- launch.py : script principal
+
+Prérequis : voir README.md
+"""
+
 from mkmpy.db import dbMkmPy
 from mkmpy.gatherer import gatherer
 from mkmpy.log import log

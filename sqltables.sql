@@ -51,7 +51,7 @@ CREATE TABLE `logsteps` (
 
 INSERT INTO `logsteps` (`id`, `step`) VALUES
 (10, 'ongoing'),
-(50, 'OK'),
+(50, 'finished'),
 (90, 'too early');
 
 -- --------------------------------------------------------

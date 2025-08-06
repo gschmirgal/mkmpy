@@ -59,9 +59,12 @@ class gatherer:
         products = data.get("products")
         with open("csvtemp/products_file.csv", "w", encoding="utf-8") as f_products:
             for product in products:
-                product.pop("categoryName")
-                product.pop("idCategory")
-                f_products.write(self.csvify(product))
+                newProduct = {}
+                for key in ["idProduct", "name", "idMetacard", "dateAdded", "idExpansion"]:
+                    if key not in product:
+                        product[key] = None
+                    newProduct[key] = product[key]
+                f_products.write(self.csvify(newProduct))
         return createdAt
 
 
@@ -77,7 +80,7 @@ class gatherer:
                 newPriceGuide = {"id": 0}
                 priceGuide["idLog"] = self.idLog
                 priceGuide["dataDate"] = dateDataStr
-                for key in ["idProduct", "idLog", "dataDate", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil"]:
+                for key in ["dataDate", "avg", "low", "trend", "avg1", "avg7", "avg30", "avg-foil", "low-foil", "trend-foil", "avg1-foil", "avg7-foil", "avg30-foil", "idProduct", "idLog"]:
                     if key not in priceGuide:
                         priceGuide[key] = None
                     newPriceGuide[key] = priceGuide[key]

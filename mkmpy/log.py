@@ -24,7 +24,7 @@ class log:
         return data
 
     def createLogEntry(self):
-        sql = f"INSERT INTO logs (dateImport, idStep) VALUES ('{self.dateImport.strftime('%Y-%m-%d %H:%M:%S')}', '{self.statusesFlip[self.status]}')"
+        sql = f"INSERT INTO logs (date_import, idStep) VALUES ('{self.dateImport.strftime('%Y-%m-%d %H:%M:%S')}', '{self.statusesFlip[self.status]}')"
         self.db.query(sql)
 
         self.id = self.db.get1value("SELECT LAST_INSERT_ID()")
@@ -36,8 +36,8 @@ class log:
         self.dateData = dateData
     
         sql = f"""UPDATE logs 
-        SET dateImportFile = '{self.dateImportFile.strftime('%Y-%m-%d %H:%M:%S')}',
-        dateData = '{self.dateData.strftime('%Y-%m-%d')}' 
+        SET date_import_file = '{self.dateImportFile.strftime('%Y-%m-%d %H:%M:%S')}',
+        date_data = '{self.dateData.strftime('%Y-%m-%d')}' 
         WHERE id = {self.id}"""
         self.db.query(sql)
 
@@ -51,7 +51,7 @@ class log:
         self.db.query(sql)
     
     def appCanRun(self):
-        sql = "SELECT max(dateImportFile) FROM logs WHERE idStep = '50' "
+        sql = "SELECT max(date_import_file) FROM logs WHERE idStep = '50' "
         lastDateImpoFile = self.db.get1value(sql)
 
         if( lastDateImpoFile >= self.dateImportFile ):

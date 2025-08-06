@@ -1,189 +1,82 @@
---
--- Base de données : `mkmpy`
---
-
+-- --------------------------------------------------------
+-- Hôte:                         127.0.0.1
+-- Version du serveur:           8.0.42 - MySQL Community Server - GPL
+-- SE du serveur:                Win64
+-- HeidiSQL Version:             12.10.0.7000
 -- --------------------------------------------------------
 
---
--- Structure de la table `expansions`
---
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET NAMES utf8 */;
+/*!50503 SET NAMES utf8mb4 */;
+/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
+/*!40103 SET TIME_ZONE='+00:00' */;
+/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
+/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
+/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
-CREATE TABLE `expansions` (
-  `id` int NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+-- Listage de la structure de table mkmpy2. expansions
+CREATE TABLE IF NOT EXISTS `expansions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=6247 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
+-- Listage de la structure de table mkmpy2. logs
+CREATE TABLE IF NOT EXISTS `logs` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `date_import` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_import_file` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `date_data` date DEFAULT NULL,
+  `idStep` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `IDX_F08FC65C3044A0A2` (`idStep`),
+  CONSTRAINT `FK_F08FC65C3044A0A2` FOREIGN KEY (`idStep`) REFERENCES `logsteps` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Structure de la table `logs`
---
+-- Listage des données de la table mkmpy2.logs : ~2 rows (environ)
+INSERT INTO `logs` (`id`, `date_import`, `date_import_file`, `date_data`, `idStep`) VALUES
+	(1, '2025-01-01 00:00:00', '2024-12-31 22:00:00', '2025-01-01', 50);
 
-CREATE TABLE `logs` (
-  `id` int NOT NULL,
-  `dateImport` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `dateImportFile` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `dateData` date DEFAULT NULL,
-  `idStep` int NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+-- Listage de la structure de table mkmpy2. logsteps
+CREATE TABLE IF NOT EXISTS `logsteps` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `step` varchar(15) COLLATE utf8mb4_unicode_ci NOT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=91 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Déchargement des données de la table `logs`
---
-
-INSERT INTO `logs` (`id`, `dateImport`, `dateImportFile`, `dateData`, `idStep`) VALUES
-(1, '2025-01-01 00:00:00', '2024-12-31 22:00:00', '2025-01-01', 50);
-
--- --------------------------------------------------------
-
---
--- Structure de la table `logsteps`
---
-
-CREATE TABLE `logsteps` (
-  `id` int NOT NULL,
-  `step` varchar(15) COLLATE utf8mb4_general_ci DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Déchargement des données de la table `logsteps`
---
-
+-- Listage des données de la table mkmpy2.logsteps : ~3 rows (environ)
 INSERT INTO `logsteps` (`id`, `step`) VALUES
-(10, 'ongoing'),
-(50, 'finished'),
-(90, 'too early');
+	(10, 'ongoing'),
+	(50, 'finished'),
+	(90, 'too early');
 
--- --------------------------------------------------------
-
---
--- Structure de la table `prices`
---
-
-CREATE TABLE `prices` (
-  `id` int NOT NULL,
-  `idProduct` int DEFAULT NULL,
-  `idLog` int NOT NULL,
-  `dateData` date DEFAULT NULL,
+-- Listage de la structure de table mkmpy2. prices
+CREATE TABLE IF NOT EXISTS `prices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `date_data` date DEFAULT NULL,
   `avg` decimal(10,2) NOT NULL,
   `low` decimal(10,2) NOT NULL,
   `trend` decimal(10,2) NOT NULL,
   `avg1` decimal(10,2) NOT NULL,
   `avg7` decimal(10,2) NOT NULL,
   `avg30` decimal(10,2) NOT NULL,
-  `avfFoil` decimal(10,2) NOT NULL,
-  `lowFoil` decimal(10,2) NOT NULL,
-  `trendFoil` decimal(10,2) NOT NULL,
-  `avg1Foil` decimal(10,2) NOT NULL,
-  `avg7Foil` decimal(10,2) NOT NULL,
-  `avg30Foil` decimal(10,2) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `avg_foil` decimal(10,2) NOT NULL,
+  `low_foil` decimal(10,2) NOT NULL,
+  `trend_foil` decimal(10,2) NOT NULL,
+  `avg1_foil` decimal(10,2) NOT NULL,
+  `avg7_foil` decimal(10,2) NOT NULL,
+  `avg30_foil` decimal(10,2) NOT NULL,
+  `idProduct` int DEFAULT NULL,
+  `idLog` int DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `IDX_E4CB6D59C3F36F5F` (`idProduct`),
+  KEY `IDX_E4CB6D59AE777542` (`idLog`),
+  CONSTRAINT `FK_E4CB6D59AE777542` FOREIGN KEY (`idLog`) REFERENCES `logs` (`id`),
+  CONSTRAINT `FK_E4CB6D59C3F36F5F` FOREIGN KEY (`idProduct`) REFERENCES `products` (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=131071 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- --------------------------------------------------------
-
---
--- Structure de la table `products`
---
-
-CREATE TABLE `products` (
-  `id` int NOT NULL,
-  `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
-  `idExpansion` int NOT NULL,
-  `idMetacard` int NOT NULL,
-  `dateAdded` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Index pour les tables déchargées
---
-
---
--- Index pour la table `expansions`
---
-ALTER TABLE `expansions`
-  ADD PRIMARY KEY (`id`);
-
---
--- Index pour la table `logs`
---
-ALTER TABLE `logs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idstatus` (`idStep`);
-
---
--- Index pour la table `logsteps`
---
-ALTER TABLE `logsteps`
-  ADD PRIMARY KEY (`id`);
-
---
--- Index pour la table `prices`
---
-ALTER TABLE `prices`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idProduct` (`idProduct`),
-  ADD KEY `prices_ibfk_2` (`idLog`);
-
---
--- Index pour la table `products`
---
-ALTER TABLE `products`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idExpansion` (`idExpansion`),
-  ADD KEY `idMetacard` (`idMetacard`);
-
---
--- AUTO_INCREMENT pour les tables déchargées
---
-
---
--- AUTO_INCREMENT pour la table `expansions`
---
-ALTER TABLE `expansions`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT pour la table `logs`
---
-ALTER TABLE `logs`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
-
---
--- AUTO_INCREMENT pour la table `prices`
---
-ALTER TABLE `prices`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT pour la table `products`
---
-ALTER TABLE `products`
-  MODIFY `id` int NOT NULL AUTO_INCREMENT;
-
---
--- Contraintes pour les tables déchargées
---
-
---
--- Contraintes pour la table `logs`
---
-ALTER TABLE `logs`
-  ADD CONSTRAINT `logs_ibfk_1` FOREIGN KEY (`idStep`) REFERENCES `logsteps` (`id`);
-
---
--- Contraintes pour la table `prices`
---
-ALTER TABLE `prices`
-  ADD CONSTRAINT `prices_ibfk_1` FOREIGN KEY (`idProduct`) REFERENCES `products` (`id`),
-  ADD CONSTRAINT `prices_ibfk_2` FOREIGN KEY (`idLog`) REFERENCES `logs` (`id`);
-
---
--- Contraintes pour la table `products`
---
-ALTER TABLE `products`
-  ADD CONSTRAINT `products_ibfk_1` FOREIGN KEY (`idExpansion`) REFERENCES `expansions` (`id`);
-COMMIT;
-
+/*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
+/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
+/*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+/*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;

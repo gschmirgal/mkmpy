@@ -7,9 +7,12 @@ from mkmpy.lib import convert_to_datetime, yesterday
 class gatherer:
     def __init__(self):
         # URLs pour récupérer les données produits, prix et extensions
-        self.urlPrices      = "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json"
-        self.urlProducts    = "https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_1.json"
-        self.urlExpansions  = "https://www.cardmarket.com/fr/Magic/Products/Singles"
+        self.urlPrices          = "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json"
+        self.urlProducts        = "https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_1.json"
+        self.urlExpansions      = "https://www.cardmarket.com/en/Magic/Products/Singles"
+
+        self.urlIndexScryfall   = "https://api.scryfall.com/bulk-data"
+        self.scryfallType       = "default_cards"
 
         self.createdAt      = None  # Date de création des données par mkm
         self.dateData       = None  # Date des données (utilisée pour les prix)
@@ -112,3 +115,33 @@ class gatherer:
             finally:
                 driver.quit()
         return 1
+    
+    def getScryfallUrl(self):
+        urls = self.fetch_and_parse_json(self.urlIndexScryfall)
+
+        for url in urls['data']:
+            if( url['type'] == self.scryfallType ):
+                return url['download_uri']
+            
+        return None
+    
+    def create_scryfall_csv(self):
+        url = self.getScryfallUrl()
+        if not url:
+            print("No Scryfall URL found for the specified type.")
+            return
+        
+        scryfallData = self.fetch_and_parse_json(url)
+
+        with open("csvtemp/scryfall_file.csv", "w", encoding="utf-8") as f_scryfall:
+            for card in scryfallData:
+                line = {}
+                for key in ["id", "cardmarket_id", "oracle_id", "scryfall_uri", "image_uris.normal", "image_uris.large", "image_uris.png", "image_uris.art_crop", "image_uris.border_crop", "reserved"]:
+                    if '.' in key:
+                        k1, k2 = key.split('.')
+                        value = card.get(k1, {}).get(k2) if isinstance(card.get(k1), dict) else None
+                    else:
+                        value = card.get(key, None)
+                    line[key] = value
+                f_scryfall.write(self.csvify(line))
+        return True

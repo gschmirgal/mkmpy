@@ -137,11 +137,26 @@ class gatherer:
             for card in scryfallData:
                 line = {}
                 for key in ["id", "cardmarket_id", "oracle_id", "scryfall_uri", "image_uris.normal", "image_uris.large", "image_uris.png", "image_uris.art_crop", "image_uris.border_crop", "reserved"]:
-                    if '.' in key:
-                        k1, k2 = key.split('.')
-                        value = card.get(k1, {}).get(k2) if isinstance(card.get(k1), dict) else None
-                    else:
-                        value = card.get(key, None)
+                    value = self.get_nested_value(card, key)
+                    if value is None:
+                        value = self.get_nested_value(card, "card_faces.0."+key)
                     line[key] = value
+
                 f_scryfall.write(self.csvify(line))
         return True
+
+    def get_nested_value(self, data, key_string):
+        """
+        Extrait la valeur d'un dictionnaire imbriqué à partir d'une clé sous forme 'key1.key2.key3'.
+        Retourne None si la clé n'existe pas.
+        """
+        keys = key_string.split('.')
+        value = data
+        for key in keys:
+            if isinstance(value, dict) and key in value:
+                value = value[key]
+            elif isinstance(value, list) and key.isdigit() and 0 <= int(key) < len(value):
+                value = value[int(key)]
+            else:
+                return None
+        return value

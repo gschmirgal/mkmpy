@@ -125,7 +125,7 @@ class gatherer:
             
         return None
     
-    def create_scryfall_csv(self):
+    def create_scryfall_products_csv(self):
         url = self.getScryfallUrl()
         if not url:
             print("No Scryfall URL found for the specified type.")
@@ -133,14 +133,45 @@ class gatherer:
         
         scryfallData = self.fetch_and_parse_json(url)
 
-        with open("csvtemp/scryfall_file.csv", "w", encoding="utf-8") as f_scryfall:
+        with open("csvtemp/scryfall_products_file.csv", "w", encoding="utf-8") as f_scryfall:
             for card in scryfallData:
                 line = {}
-                for key in ["id", "cardmarket_id", "oracle_id", "scryfall_uri", "image_uris.normal", "image_uris.large", "image_uris.png", "image_uris.art_crop", "image_uris.border_crop", "reserved"]:
+                if 'paper' not in card['games']:
+                    continue
+                for key in ["id",
+                            "cardmarket_id",
+                            "oracle_id",
+                            "image_uris.normal",
+                            "image_uris.png",
+                            "reserved",
+                            "set_id",
+                            "name",
+                            "card_faces.1.image_uris.normal",
+                            "card_faces.1.image_uris.png",
+                            "collector_number",
+                            "rarity",
+                            "related_uris.gatherer",
+                            "scryfall_uri"]:
                     value = self.get_nested_value(card, key)
                     if value is None:
                         value = self.get_nested_value(card, "card_faces.0."+key)
                     line[key] = value
+
+                f_scryfall.write(self.csvify(line))
+        return True
+    
+    def create_scryfall_expansions_csv(self):
+
+        scryfallData = self.fetch_and_parse_json("https://api.scryfall.com/sets/")
+
+        with open("csvtemp/scryfall_expansions_file.csv", "w", encoding="utf-8") as f_scryfall:
+            for ext in scryfallData['data']:
+                line = {}
+                for key in ["id",
+                            "code",
+                            "name",
+                            "icon_svg_uri"]:
+                   line[key] = ext[key]
 
                 f_scryfall.write(self.csvify(line))
         return True

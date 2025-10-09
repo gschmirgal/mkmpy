@@ -2,7 +2,7 @@ import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 import time
 import requests
-from mkmpy.lib import convert_to_datetime, yesterday
+from mkmpy.lib import convert_to_datetime, yesterday, getconfigfile
 
 class gatherer:
     def __init__(self):
@@ -18,6 +18,11 @@ class gatherer:
         self.dateData       = None  # Date des données (utilisée pour les prix)
 
         self.idLog          = 0     # Identifiant de log pour le suivi
+        
+        # Create a ConfigParser object
+        config = getconfigfile()
+        # Access values from the configuration file
+        self.temp = config['Folders']['temp']
 
     def set_id_log(self, idLog):
         # Définit l'identifiant de log
@@ -60,7 +65,7 @@ class gatherer:
         data = self.fetch_and_parse_json(self.urlProducts)
         createdAt = convert_to_datetime(data.get("createdAt"))
         products = data.get("products")
-        with open("csvtemp/products_file.csv", "w", encoding="utf-8") as f_products:
+        with open(self.temp+"/csvtemp/products_file.csv", "w", encoding="utf-8") as f_products:
             for product in products:
                 newProduct = {}
                 for key in ["idProduct", "name", "idMetacard", "dateAdded", "idExpansion"]:
@@ -78,7 +83,7 @@ class gatherer:
         self.dateData = yesterday(self.createdAt)
         dateDataStr = self.dateData.strftime('%Y-%m-%d')
         priceGuides = data.get("priceGuides")
-        with open("csvtemp/prices_file.csv", "w", encoding="utf-8") as f_prices:
+        with open(self.temp+"/csvtemp/prices_file.csv", "w", encoding="utf-8") as f_prices:
             for priceGuide in priceGuides:
                 newPriceGuide = {"id": 0}
                 priceGuide["idLog"] = self.idLog
@@ -93,7 +98,7 @@ class gatherer:
     def create_expansions_csv(self):
         # Scrape la page Cardmarket pour récupérer la liste des extensions et écrit un CSV
         name = "idExpansion"
-        with open("csvtemp/expansions_file.csv", "w", encoding="utf-8") as f_expansions:
+        with open(self.temp+"/csvtemp/expansions_file.csv", "w", encoding="utf-8") as f_expansions:
             options = uc.ChromeOptions()
             options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
             driver = uc.Chrome(options=options, headless=True)
@@ -133,7 +138,7 @@ class gatherer:
         
         scryfallData = self.fetch_and_parse_json(url)
 
-        with open("csvtemp/scryfall_products_file.csv", "w", encoding="utf-8") as f_scryfall:
+        with open(self.temp+"/csvtemp/scryfall_products_file.csv", "w", encoding="utf-8") as f_scryfall:
             for card in scryfallData:
                 line = {}
                 if 'paper' not in card['games']:
@@ -164,7 +169,7 @@ class gatherer:
 
         scryfallData = self.fetch_and_parse_json("https://api.scryfall.com/sets/")
 
-        with open("csvtemp/scryfall_expansions_file.csv", "w", encoding="utf-8") as f_scryfall:
+        with open(self.temp+"/csvtemp/scryfall_expansions_file.csv", "w", encoding="utf-8") as f_scryfall:
             for ext in scryfallData['data']:
                 line = {}
                 for key in ["id",

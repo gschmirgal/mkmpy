@@ -1,4 +1,6 @@
+import configparser
 import datetime
+import os
 
 # Convertit une chaîne de caractères en objet datetime.datetime si possible.
 # Accepte les formats ISO (ex: '2025-06-01T12:34:56') ou 'YYYY-MM-DD'.
@@ -48,3 +50,14 @@ def match2ways( data ):
 
     return indexed
 
+def getconfigfile():
+    if os.path.exists("../config.ini"):
+        config_file = "../config.ini"
+    else:
+        config_file = "config.ini"
+        
+    config = configparser.ConfigParser()
+
+    # Read the configuration file
+    config.read(config_file)
+    return config  # Retourner l'objet config, pas le résultat de read()

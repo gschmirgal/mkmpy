@@ -1,13 +1,14 @@
-import configparser
 import mysql.connector
+import mkmpy.lib as lib
 
 class MySQLConnectionManager:
-    def __init__(self, host, user, password, database, port=3306):
+    def __init__(self, host, user, password, database, temp= "./", port=3306):
         self.host = host
         self.user = user
         self.password = password
         self.database = database
         self.port = port
+        self.temp = temp
         self.connection = None
 
     def connect(self):
@@ -50,7 +51,7 @@ class MySQLConnectionManager:
 
     def import_csv_to_table(self, csv_file_path, table_name, delimiter=','):
         query = (
-            f"LOAD DATA LOCAL INFILE '{csv_file_path}' "
+            f"LOAD DATA LOCAL INFILE '{self.temp+csv_file_path}' "
             "IGNORE "
             f"INTO TABLE {table_name} "
             f"FIELDS TERMINATED BY '{delimiter}' "
@@ -69,11 +70,8 @@ class MySQLConnectionManager:
 
 class dbMkmPy(MySQLConnectionManager):
     def __init__(self):
-         # Create a ConfigParser object
-        config = configparser.ConfigParser()
-
-        # Read the configuration file
-        config.read('config.ini')
+        # Create a ConfigParser object
+        config = lib.getconfigfile()
 
         # Access values from the configuration file
         config_db = config['Database']
@@ -83,5 +81,6 @@ class dbMkmPy(MySQLConnectionManager):
             user=config_db['user'],
             password=config_db['password'],
             database=config_db['database'],
-            port=config_db['port']
+            port=config_db['port'],
+            temp=config['Folders']['temp']
         )

@@ -38,8 +38,9 @@ class gatherer:
 
     def fetch_and_parse_json(self,url):
         # Télécharge et parse un JSON depuis une URL
+        headers = {"User-Agent": "mkmpy/1.0 (https://github.com/gschmirgal/mkmpy)"}
         try:
-            response = requests.get(url)
+            response = requests.get(url, headers=headers)
             response.raise_for_status()  # Vérifie les erreurs HTTP
             return response.json()  # Convertir la réponse en JSON
         except requests.exceptions.RequestException as e:
@@ -168,6 +169,9 @@ class gatherer:
     def create_scryfall_expansions_csv(self):
 
         scryfallData = self.fetch_and_parse_json("https://api.scryfall.com/sets/")
+
+        if scryfallData is None:
+            raise RuntimeError("Impossible de récupérer les données Scryfall (sets)")
 
         with open(self.temp+"/csvtemp/scryfall_expansions_file.csv", "w", encoding="utf-8") as f_scryfall:
             for ext in scryfallData['data']:

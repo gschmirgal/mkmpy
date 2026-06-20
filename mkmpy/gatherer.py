@@ -19,10 +19,10 @@ class gatherer:
 
         self.idLog          = 0     # Identifiant de log pour le suivi
         
-        # Create a ConfigParser object
         config = getconfigfile()
-        # Access values from the configuration file
         self.temp = config['Folders']['temp']
+        chrome_version = config.get('Browser', 'chrome_version', fallback=None)
+        self.chrome_version = int(chrome_version) if chrome_version else None
 
     def set_id_log(self, idLog):
         # Définit l'identifiant de log
@@ -102,7 +102,10 @@ class gatherer:
         with open(self.temp+"/csvtemp/expansions_file.csv", "w", encoding="utf-8") as f_expansions:
             options = uc.ChromeOptions()
             options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
-            driver = uc.Chrome(options=options, headless=True)
+            kwargs = {"headless": True}
+            if self.chrome_version:
+                kwargs["version_main"] = self.chrome_version
+            driver = uc.Chrome(options=options, **kwargs)
             try:
                 driver.get(self.urlExpansions)
                 # Attend le challenge Cloudflare

@@ -2,6 +2,8 @@ import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 import time
 import requests
+import gzip
+import json
 from mkmpy.lib import convert_to_datetime, yesterday, getconfigfile
 
 class gatherer:
@@ -129,44 +131,51 @@ class gatherer:
         urls = self.fetch_and_parse_json(self.urlIndexScryfall)
 
         for url in urls['data']:
-            if( url['type'] == self.scryfallType ):
-                return url['download_uri']
-            
+            if url['type'] == self.scryfallType:
+                return url['jsonl_download_uri']
+
         return None
-    
+
     def create_scryfall_products_csv(self):
         url = self.getScryfallUrl()
         if not url:
             print("No Scryfall URL found for the specified type.")
             return
-        
-        scryfallData = self.fetch_and_parse_json(url)
+
+        headers = {"User-Agent": "mkmpy/1.0 (https://github.com/gschmirgal/mkmpy)"}
+        response = requests.get(url, headers=headers, stream=True)
+        response.raise_for_status()
 
         with open(self.temp+"/csvtemp/scryfall_products_file.csv", "w", encoding="utf-8") as f_scryfall:
-            for card in scryfallData:
-                line = {}
-                if 'paper' not in card['games']:
-                    continue
-                for key in ["id",
-                            "cardmarket_id",
-                            "oracle_id",
-                            "image_uris.normal",
-                            "image_uris.png",
-                            "reserved",
-                            "set_id",
-                            "name",
-                            "card_faces.1.image_uris.normal",
-                            "card_faces.1.image_uris.png",
-                            "collector_number",
-                            "rarity",
-                            "related_uris.gatherer",
-                            "scryfall_uri"]:
-                    value = self.get_nested_value(card, key)
-                    if value is None:
-                        value = self.get_nested_value(card, "card_faces.0."+key)
-                    line[key] = value
+            with gzip.open(response.raw, "rt", encoding="utf-8") as gz:
+                for line in gz:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    card = json.loads(line)
+                    line = {}
+                    if 'paper' not in card['games']:
+                        continue
+                    for key in ["id",
+                                "cardmarket_id",
+                                "oracle_id",
+                                "image_uris.normal",
+                                "image_uris.png",
+                                "reserved",
+                                "set_id",
+                                "name",
+                                "card_faces.1.image_uris.normal",
+                                "card_faces.1.image_uris.png",
+                                "collector_number",
+                                "rarity",
+                                "related_uris.gatherer",
+                                "scryfall_uri"]:
+                        value = self.get_nested_value(card, key)
+                        if value is None:
+                            value = self.get_nested_value(card, "card_faces.0."+key)
+                        line[key] = value
 
-                f_scryfall.write(self.csvify(line))
+                    f_scryfall.write(self.csvify(line))
         return True
     
     def create_scryfall_expansions_csv(self):

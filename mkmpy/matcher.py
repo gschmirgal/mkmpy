@@ -1,20 +1,30 @@
-import os
-from mkmpy import db
-from mkmpy.db import dbMkmPy
+import logging
+
+from mkmpy.datasets import SCRYFALL_PRODUCTS
 from mkmpy.lib import implode_quoted, match2ways
 
-class matcher:
+logger = logging.getLogger(__name__)
+
+
+class Matcher:
     """
     Card matching class that handles the relationship between Scryfall and CardMarket (MKM) data.
     This class creates and maintains bidirectional mappings between the two card databases.
     """
-    db = dbMkmPy()
-    
-    def __init__(self, reset_scryfall_products=False):
-        """Initialize the matcher and gather all matching data."""
-        if  reset_scryfall_products:
+
+    def __init__(self, db, csv_dir=None):
+        """csv_dir is only needed to reset scryfall_products from its CSV file."""
+        self.db = db
+        self.csv_dir = csv_dir
+        self.matchingext = {}
+        self.matchingcrd = {}
+
+    def run(self, reset_scryfall_products=False):
+        """Build the matching tables, then link unmatched Scryfall products."""
+        if reset_scryfall_products:
             self.resetScryfallProducts()
         self.gatherdata()
+        self.launchMatching()
 
     def gatherdata(self):
         """
@@ -28,16 +38,17 @@ class matcher:
         """
         Reset and reimport Scryfall products data from CSV file.
         This method clears the scryfall_products table and reloads it from the CSV file.
-        Only executes if the CSV file exists in the csvtemp directory.
+        Only executes if the CSV file exists in csv_dir.
         """
-        if os.path.exists("csvtemp/scryfall_products_file.csv"):
+        csv_path = self.csv_dir / SCRYFALL_PRODUCTS.filename
+        if csv_path.exists():
             # Disable foreign key checks to allow truncation
             self.db.query("SET FOREIGN_KEY_CHECKS = 0;")
             self.db.query("TRUNCATE TABLE scryfall_products;")
             self.db.query("SET FOREIGN_KEY_CHECKS = 1;")
 
             # Reimport clean data
-            self.db.import_csv_to_table("csvtemp/scryfall_products_file.csv", "scryfall_products", ";")
+            self.db.import_csv_to_table(csv_path, SCRYFALL_PRODUCTS.table, SCRYFALL_PRODUCTS.columns)
 
     def generateExpansionMatching(self):
         """
@@ -104,6 +115,7 @@ class matcher:
                 WHERE sp.card_market_id_id IS NULL;"""
 
         data2match = self.db.query(sql)
+        nb_matched = 0
 
         for row in data2match:
             # Skip if oracle_id is not in our card matching dictionary
@@ -142,3 +154,6 @@ class matcher:
                 if len(dataCM) == 1:
                     sql = f"UPDATE scryfall_products SET card_market_id_id = '{dataCM[0]['id']}' WHERE id = '{row['id']}'"
                     self.db.query(sql)
+                    nb_matched += 1
+
+        logger.info("Matching : %d produits Scryfall liés sur %d candidats", nb_matched, len(data2match))

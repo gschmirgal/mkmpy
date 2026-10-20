@@ -1,172 +1,142 @@
-# MKMPy - Cardmarket & Scryfall Data Integration Platform
+# MKMPy
 
-![Python](https://img.shields.io/badge/Python-3.8+-blue?style=for-the-badge&logo=python&logoColor=white)
-![MySQL](https://img.shields.io/badge/MySQL-5.7+-orange?style=for-the-badge&logo=mysql&logoColor=white)
-![Selenium](https://img.shields.io/badge/Selenium-4.0+-green?style=for-the-badge&logo=selenium&logoColor=white)
-![BeautifulSoup](https://img.shields.io/badge/BeautifulSoup-4.0+-purple?style=for-the-badge&logo=python&logoColor=white)
-![Requests](https://img.shields.io/badge/Requests-2.0+-red?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8.0-orange?logo=mysql&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
-![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=for-the-badge)
-![Magic: The Gathering](https://img.shields.io/badge/Magic%3A%20The%20Gathering-Data%20Integration-blueviolet?style=for-the-badge&logo=wizards-of-the-coast)
+Daily import of Magic: The Gathering data from **Cardmarket** (products, expansions, price guide) and **Scryfall** (sets, cards) into a MySQL database, with automatic linking of Scryfall cards to their Cardmarket products.
 
-## Overview
-MKMPy is a comprehensive Python project designed to automate the retrieval, transformation, and integration of Magic: The Gathering product and price data from multiple sources (Cardmarket and Scryfall) into a unified MySQL database. It features advanced data matching algorithms, efficient CSV processing, and maintains bidirectional relationships between different card database systems.
+## How it works
 
-## Features
-- **Multi-Source Data Import**: Fetches data from both Cardmarket (JSON API and web scraping) and Scryfall
-- **Intelligent Card Matching**: Advanced bidirectional matching system between Scryfall Oracle IDs and Cardmarket meta card IDs
-- **Expansion Mapping**: Automatic expansion matching between Scryfall and Cardmarket databases
-- **Cloudflare Protection**: Handles Cloudflare-protected pages using undetected_chromedriver
-- **Efficient Processing**: Transforms data into clean CSV files with batch processing capabilities
-- **Database Integration**: Uses `LOAD DATA LOCAL INFILE` for high-performance MySQL imports
-- **Import Logging**: Maintains comprehensive logs of imports with timestamps and status tracking
-- **Automated Matching**: Smart algorithm to automatically link unmatched Scryfall products with Cardmarket equivalents
+Each run of `launch.py`:
+
+1. Downloads the Cardmarket price guide and stops if it is not newer than the last finished import.
+2. Downloads the other sources and writes one CSV file per table in `csvtemp/`:
+   - Cardmarket products: public JSON file
+   - Cardmarket expansions: scraped from the Singles page with a headless Chrome (the page is behind Cloudflare)
+   - Scryfall sets and cards: Scryfall API and `default_cards` bulk file (paper cards only)
+3. Imports the CSV files with `LOAD DATA LOCAL INFILE`. Rows that already exist are skipped, so products and expansions accumulate over time and prices are added for each day.
+4. Runs the matching: Scryfall cards without a Cardmarket id are linked when the link can be deduced unambiguously from the cards already linked (same card, same expansion).
+5. Records the run in the `logs` table with its status: `ongoing`, `finished`, `too early` or `error`.
+
+The database can be disabled to only produce the CSV files (see [Configuration](#configuration)).
 
 ## Requirements
-- Python 3.8+
-- MySQL server (5.7+ or 8.0+)
-- Google Chrome (latest version for undetected_chromedriver)
 
-### Python Packages
-Install dependencies with:
+- Python 3.12+
+- Google Chrome
+- MySQL 8.0 with `local_infile` enabled on the server (not needed when the database is disabled)
+
+## Installation
+
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp config_template.ini config.ini
 ```
 
-**Key Dependencies:**
-- `mysql-connector-python` - MySQL database connectivity
-- `undetected-chromedriver` - Cloudflare bypass for web scraping
-- `requests` - HTTP requests for API calls
-- `beautifulsoup4` - HTML parsing for web scraping
+Then create the tables:
 
-## Database Initialization
-Before running the project, you **must initialize your MySQL database** using the provided SQL schema:
-
-1. Open your MySQL client (Workbench, command line, etc.).
-2. Import the file `sqltables.sql` to create the necessary tables and structure:
-   ```sql
-   SOURCE path/to/sqltables.sql;
-   ```
-   Or, from the command line (PowerShell):
-   ```powershell
-   mysql -u youruser -p yourdb < sqltables.sql
-   ```
+```bash
+mysql -u youruser -p yourdb < sqltables.sql
+```
 
 ## Configuration
-1. Copy `config_template.ini` to `config.ini` and fill in your MySQL credentials:
-   ```ini
-   [Database]
-   host=localhost
-   user=youruser
-   password=yourpassword
-   database=yourdb
-   port=3306
-   ```
-2. Ensure the `csvtemp/` directory exists (for CSV output).
+
+`config.ini` is read from the project root.
+
+```ini
+[Database]
+# false: download the data and write the CSV files only (no MySQL, no log, no matching)
+enabled  = true
+host     = 127.0.0.1
+user     = mkmpy
+password = your_password
+database = mkmpy
+port     = 3306
+
+[Folders]
+# folder containing csvtemp/, relative to the project root
+temp     = ./
+
+[Logging]
+# WARNING: a normal run prints nothing; INFO: full progress
+level    = WARNING
+
+[Browser]
+# force the ChromeDriver major version if it does not match the installed Chrome
+# chrome_version = 149
+```
+
+`enabled` defaults to `true` and `level` to `WARNING` when they are missing.
 
 ## Usage
 
-### Basic Data Import
-Run the main script:
 ```bash
-python launch.py
+.venv/bin/python launch.py
 ```
-This will:
-- Download and process product, price, and expansion data from Cardmarket
-- Fetch Scryfall data for matching purposes
-- Write CSV files to `csvtemp/`
-- Import new data into the MySQL database if the last import is older than 1 day
-- Log the import in the `logs` table
 
-### Advanced Card Matching
-For automatic card matching between Scryfall and Cardmarket databases:
+Exit code is `0` on success and `1` when the data was already imported. With `level = WARNING`, a normal run produces no output, so it can be scheduled with cron and only send a mail when something goes wrong:
+
+```cron
+0 6 * * * cd /path/to/mkmpy && .venv/bin/python launch.py
+```
+
+Warnings are printed for unexpected MySQL warnings during an import, for failed Cloudflare attempts on the expansions page (3 attempts) and for errors.
+
+## Project structure
+
+```
+launch.py               Entry point
+mkmpy/
+  cardmarket.py         CardmarketSource: products, prices, expansions -> CSV
+  scryfall.py           ScryfallSource: sets, cards -> CSV
+  datasets.py           Target tables and source field -> column mapping
+  csvwriter.py          CSV writer compatible with LOAD DATA
+  db.py                 MySQL connection and CSV import
+  import_log.py         ImportLog: runs tracking in the logs table
+  matcher.py            Matcher: Scryfall / Cardmarket linking
+  lib.py                Configuration, HTTP and helpers
+tests/                  Unit tests
+debug_expansions.py     Diagnostic tool for the expansions scraping
+sqltables.sql           Database schema
+```
+
+The column order of each table is defined once in `datasets.py` and used both to write the CSV file and in the `LOAD DATA` column list.
+
+## Matching only
+
+The matching can be run on its own, for example after fixing links by hand:
+
 ```python
-from mkmpy.matcher import matcher
+from mkmpy.db import MySQLConnectionManager
+from mkmpy.lib import get_csv_dir, load_config
+from mkmpy.matcher import Matcher
 
-# Initialize matcher (optionally reset Scryfall data)
-card_matcher = matcher(reset_scryfall_products=True)
-
-# Run automatic matching process
-card_matcher.launchMatching()
+config = load_config()
+with MySQLConnectionManager.from_config(config) as db:
+    # reset_scryfall_products=True reloads scryfall_products from its CSV file first
+    Matcher(db, get_csv_dir(config)).run()
 ```
 
-## Project Structure
-```
-mkmpy-1/
-├── launch.py                 # Main script, orchestrates the workflow
-├── mkmpy/
-│   ├── gatherer.py          # Data fetching and CSV generation (API and web scraping)
-│   ├── db.py                # MySQL connection manager and CSV import logic
-│   ├── log.py               # Logging and import control logic
-│   ├── lib.py               # Utility functions (implode_quoted, match2ways, etc.)
-│   └── matcher.py           # Advanced card matching system (NEW)
-├── csvtemp/                 # Output directory for generated CSV files
-│   ├── products_file.csv
-│   ├── prices_file.csv
-│   ├── expansions_file.csv
-│   ├── scryfall_products_file.csv
-│   └── scryfall_expansions_file.csv
-├── requirements.txt         # Python dependencies
-├── config_template.ini      # Database configuration template
-├── config.ini              # Database configuration (not versioned)
-└── sqltables.sql           # SQL schema to initialize the database
-```
-
-### Core Modules
-- **`matcher.py`** — NEW: Intelligent matching system for Scryfall ↔ Cardmarket relationships
-- **`gatherer.py`** — Data fetching and CSV generation (API and web scraping)
-- **`db.py`** — MySQL connection manager and CSV import logic
-- **`log.py`** — Logging and import control logic
-- **`lib.py`** — Utility functions including bidirectional matching algorithms
-
-## Key Features Explained
-
-### Intelligent Card Matching
-The `matcher` class provides sophisticated algorithms to:
-- Create bidirectional mappings between Scryfall Oracle IDs and Cardmarket meta card IDs
-- Match expansions between the two database systems
-- Automatically link unmatched Scryfall products with their Cardmarket equivalents
-- Handle edge cases where multiple variants exist
-
-### Utility Functions
-- **`implode_quoted()`** - SQL-safe string concatenation with proper escaping
-- **`match2ways()`** - Creates bidirectional lookup dictionaries for database relationships
-- **Batch Processing** - Optimized for handling large datasets efficiently
-
-## Notes
-- The project uses undetected_chromedriver to bypass Cloudflare. Make sure Chrome is installed and up to date
-- All CSV writing is custom; ensure your data does not contain unescaped semicolons or newlines
-- The MySQL user must have `FILE` and `LOCAL INFILE` privileges
-- The matching system works best with clean, consistent data from both sources
-- Batch processing is implemented for performance optimization on large datasets
+Links already present in `scryfall_products.card_market_id_id`, including the ones set by hand, are kept across imports.
 
 ## Troubleshooting
-- **Undetected ChromeDriver**: Exit errors are harmless and can be ignored
-- **CSV Import Issues**: Check CSV quoting and MySQL table column order if columns get mixed
-- **Cloudflare Protection**: Increase sleep time in `create_expansions_csv` if blocked
-- **Matching Issues**: Ensure both Scryfall and Cardmarket data are properly imported before running matcher
-- **Database Connection**: Verify MySQL credentials and permissions in `config.ini`
 
-## Recent Updates
-- ✅ **NEW**: Advanced card matching system (`matcher.py`)
-- ✅ **NEW**: Bidirectional database relationship mapping
-- ✅ **NEW**: Scryfall integration with Oracle ID matching
-- ✅ **NEW**: Batch processing optimization for large datasets
-- ✅ **NEW**: Enhanced utility functions with SQL injection protection
-- ✅ **NEW**: Comprehensive English documentation and code comments
-- ✅ **IMPROVED**: Performance optimizations with collections and comprehensions
-- ✅ **IMPROVED**: Error handling and data validation
+- **Expansions page blocked by Cloudflare**: run `python debug_expansions.py` (`--visible` to see the browser). It prints each step and saves the page HTML and a screenshot in `csvtemp/debug/`.
+- **ChromeDriver version mismatch**: set `chrome_version` in `[Browser]` to the major version of the installed Chrome.
+- **`LOAD DATA LOCAL INFILE` refused**: enable `local_infile` on the MySQL server.
+- **Prices rejected during the import**: the price guide contains products that are not in the Singles product list. They are skipped because of the foreign key on `products` (shown with `level = INFO`).
 
-## Contributing
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+## Tests
+
+```bash
+.venv/bin/python -m unittest discover -s tests -t .
+```
 
 ## License
-MIT License
+
+MIT
 
 ---
 

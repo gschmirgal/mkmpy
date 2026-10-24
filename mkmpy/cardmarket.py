@@ -1,4 +1,6 @@
 import logging
+import re
+import subprocess
 import time
 
 import undetected_chromedriver as uc
@@ -9,6 +11,21 @@ from mkmpy.datasets import EXPANSIONS, PRICES, PRODUCTS
 from mkmpy.lib import convert_to_datetime, fetch_json, yesterday
 
 logger = logging.getLogger(__name__)
+
+
+def detect_chrome_version():
+    # Version majeure du Chrome installé, ou None si elle n'a pas pu être lue.
+    # Sans elle, undetected_chromedriver télécharge le dernier chromedriver publié,
+    # qui ne démarre pas si Chrome n'a pas encore été mis à jour vers cette version.
+    path = uc.find_chrome_executable()
+    if not path:
+        return None
+    try:
+        output = subprocess.run([path, "--version"], capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r"(\d+)\.\d+\.\d+", output)
+    return int(match.group(1)) if match else None
 
 
 class CardmarketSource:
@@ -52,6 +69,9 @@ class CardmarketSource:
         if user_agent:
             options.add_argument(f'--user-agent={user_agent}')
         kwargs = {"headless": True}
+        if self.chrome_version is None:
+            self.chrome_version = detect_chrome_version()
+            logger.info("Version de Chrome détectée : %s", self.chrome_version)
         if self.chrome_version:
             kwargs["version_main"] = self.chrome_version
         return uc.Chrome(options=options, **kwargs)

@@ -1,17 +1,18 @@
 """
 Script de debug pour la récupération des extensions Cardmarket.
 
-Reprend la logique de CardmarketSource.create_expansions_csv() mais :
-- affiche chaque étape (création du driver, chargement, titre de page...)
-- attend le select en polling (au lieu d'un sleep fixe de 10s)
+Lance Chrome comme CardmarketSource.create_expansions_csv() (même détection de version,
+même user-agent) mais :
+- affiche chaque étape (versions, user-agent, titre de la page toutes les 2 s)
 - sauvegarde le HTML et une capture d'écran dans csvtemp/debug/
-- permet de tester avec / sans headless
+- permet de tester d'autres réglages (mode visible, autre user-agent)
 
 Usage :
-    python debug_expansions.py              # headless (comme en prod)
-    python debug_expansions.py --visible    # fenêtre Chrome visible
-    python debug_expansions.py --timeout 60
+    python debug_expansions.py                    # comme en prod (headless, UA réel sans "Headless")
+    xvfb-run -a python debug_expansions.py --visible   # Chrome visible (écran virtuel sur un serveur)
+    python debug_expansions.py --no-ua            # user-agent propre à Chrome (contient "HeadlessChrome")
     python debug_expansions.py --ua "Mozilla/5.0 ..."
+    python debug_expansions.py --timeout 60
 """
 
 import argparse
@@ -22,10 +23,9 @@ import traceback
 import undetected_chromedriver as uc
 from bs4 import BeautifulSoup
 
-from mkmpy.lib import load_config
+from mkmpy.cardmarket import CardmarketSource
+from mkmpy.lib import create_session, get_csv_dir, load_config
 
-URL = "https://www.cardmarket.com/en/Magic/Products/Singles"
-SELECT_NAME = "idExpansion"
 DEBUG_DIR = "csvtemp/debug"
 
 
@@ -38,51 +38,44 @@ def main():
     parser.add_argument("--visible", action="store_true", help="désactive le mode headless")
     parser.add_argument("--timeout", type=int, default=30, help="attente max du select (s)")
     parser.add_argument("--no-ua", action="store_true", help="ne force pas le user-agent")
-    parser.add_argument("--ua", help="user-agent à utiliser à la place de celui par défaut")
-    parser.add_argument("--auto-ua", action="store_true", help="UA réel du navigateur sans 'Headless' (via CDP)")
+    parser.add_argument("--ua", help="user-agent à utiliser à la place de celui de la prod")
     args = parser.parse_args()
 
     os.makedirs(DEBUG_DIR, exist_ok=True)
 
     config = load_config()
-    chrome_version = config.get("Browser", "chrome_version", fallback=None)
-    chrome_version = int(chrome_version) if chrome_version else None
-    step(f"undetected_chromedriver {uc.__version__}, chrome_version config = {chrome_version}")
+    cardmarket = CardmarketSource(create_session(), get_csv_dir(config),
+                                  config.getint("Browser", "chrome_version", fallback=None))
+    step(f"undetected_chromedriver {uc.__version__}, chrome_version config = {cardmarket.chrome_version}")
 
-    options = uc.ChromeOptions()
-    if args.ua:
-        options.add_argument(f'--user-agent={args.ua}')
-    elif not args.no_ua and not args.auto_ua:
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36')
-    kwargs = {"headless": not args.visible}
-    if chrome_version:
-        kwargs["version_main"] = chrome_version
-
-    step(f"Création du driver {kwargs} ...")
     try:
-        driver = uc.Chrome(options=options, **kwargs)
+        if args.ua:
+            user_agent = args.ua
+        elif args.no_ua:
+            user_agent = None
+        else:
+            step("Lecture du user-agent réel de Chrome ...")
+            user_agent = cardmarket.get_browser_user_agent()
+        step(f"Création du driver (headless={not args.visible}, version={cardmarket.chrome_version}) ...")
+        driver = cardmarket.create_chrome_driver(user_agent, headless=not args.visible)
     except Exception:
         step("ECHEC création du driver :")
         traceback.print_exc()
         return
 
     try:
-        if args.auto_ua:
-            ua = driver.execute_script("return navigator.userAgent").replace("HeadlessChrome", "Chrome")
-            driver.execute_cdp_cmd("Network.setUserAgentOverride", {"userAgent": ua})
-
         caps = driver.capabilities
         step(f"Chrome {caps.get('browserVersion')} / chromedriver {caps.get('chrome', {}).get('chromedriverVersion', '?').split(' ')[0]}")
         step(f"User-agent effectif : {driver.execute_script('return navigator.userAgent')}")
 
-        step(f"GET {URL}")
-        driver.get(URL)
+        step(f"GET {cardmarket.URL_EXPANSIONS}")
+        driver.get(cardmarket.URL_EXPANSIONS)
 
         select = None
         start = time.time()
         while time.time() - start < args.timeout:
             soup = BeautifulSoup(driver.page_source, "html.parser")
-            select = soup.find("select", attrs={"name": SELECT_NAME})
+            select = soup.find("select", attrs={"name": "idExpansion"})
             step(f"  t={time.time() - start:4.1f}s  titre='{driver.title}'  select trouvé={select is not None}")
             if select:
                 break

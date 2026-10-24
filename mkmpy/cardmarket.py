@@ -42,11 +42,16 @@ class CardmarketSource:
 
     def create_products_csv(self):
         # Récupère la liste des produits et écrit un CSV
+        # Retourne les ids des extensions utilisées par ces produits
         data = fetch_json(self.session, self.URL_PRODUCTS)
+        expansion_ids = set()
         with CsvWriter(self.csv_dir / PRODUCTS.filename, PRODUCTS.columns) as writer:
             for product in data["products"]:
                 writer.write({column: product.get(key) for column, key in PRODUCTS.fields.items()})
+                if product.get("idExpansion") is not None:
+                    expansion_ids.add(int(product["idExpansion"]))
         logger.info("Produits Cardmarket : %d lignes", writer.count)
+        return expansion_ids
 
     def create_prices_csv(self, id_log=None):
         # Récupère les prix et écrit un CSV
@@ -63,12 +68,12 @@ class CardmarketSource:
         logger.info("Prix Cardmarket : %d lignes (fichier du %s)", writer.count, created_at)
         return created_at, date_data
 
-    def create_chrome_driver(self, user_agent=None):
-        # Lance Chrome en headless, avec un user-agent forcé si fourni
+    def create_chrome_driver(self, user_agent=None, headless=True):
+        # Lance Chrome (headless par défaut), avec un user-agent forcé si fourni
         options = uc.ChromeOptions()
         if user_agent:
             options.add_argument(f'--user-agent={user_agent}')
-        kwargs = {"headless": True}
+        kwargs = {"headless": headless}
         if self.chrome_version is None:
             self.chrome_version = detect_chrome_version()
             logger.info("Version de Chrome détectée : %s", self.chrome_version)
@@ -98,13 +103,14 @@ class CardmarketSource:
                 if select:
                     return select
                 time.sleep(2)
-            logger.warning("Extensions : challenge Cloudflare non résolu (page : '%s')", driver.title)
+            logger.info("Extensions : challenge Cloudflare non résolu (page : '%s')", driver.title)
             return None
         finally:
             driver.quit()
 
     def create_expansions_csv(self, timeout=30, attempts=3):
         # Scrape la page Cardmarket pour récupérer la liste des extensions et écrit un CSV
+        # Retourne les extensions trouvées : id -> nom
         # L'UA doit être passé au lancement de Chrome : le modifier ensuite (CDP) ne passe pas Cloudflare
         user_agent = self.get_browser_user_agent()
         select = None
@@ -113,13 +119,16 @@ class CardmarketSource:
             select = self.fetch_expansions_select(user_agent, timeout)
             if select:
                 break
-            logger.warning("Extensions : tentative %d/%d échouée", attempt, attempts)
+            logger.info("Extensions : tentative %d/%d échouée", attempt, attempts)
         if not select:
             raise RuntimeError(f"Liste des extensions introuvable sur {self.URL_EXPANSIONS} après {attempts} tentatives")
         # Extrait les options du select et écrit dans le CSV
+        expansions = {}
         with CsvWriter(self.csv_dir / EXPANSIONS.filename, EXPANSIONS.columns) as writer:
             for option in select.find_all('option'):
                 value = option.get('value')
                 if value != "0":
+                    expansions[int(value)] = option.text.strip()
                     writer.write({"id": int(value), "name": option.text.strip()})
         logger.info("Extensions Cardmarket : %d lignes", writer.count)
+        return expansions

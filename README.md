@@ -13,11 +13,12 @@ Each run of `launch.py`:
 1. Downloads the Cardmarket price guide and stops if it is not newer than the last finished import.
 2. Downloads the other sources and writes one CSV file per table in `csvtemp/`:
    - Cardmarket products: public JSON file
-   - Cardmarket expansions: scraped from the Singles page with a headless Chrome (the page is behind Cloudflare)
+   - Cardmarket expansions: scraped from the Singles page with a headless Chrome (the page is behind Cloudflare). If the page cannot be reached, the import continues with the expansions already in the database
+3. Creates the expansions used by the products but missing from the database, named `Unknown expansion <id>`: rename them by hand, or they are renamed on the next successful scraping
    - Scryfall sets and cards: Scryfall API and `default_cards` bulk file (paper cards only)
-3. Imports the CSV files with `LOAD DATA LOCAL INFILE`. Rows that already exist are skipped, so products and expansions accumulate over time and prices are added for each day.
-4. Runs the matching: Scryfall cards without a Cardmarket id are linked when the link can be deduced unambiguously from the cards already linked (same card, same expansion).
-5. Records the run in the `logs` table with its status: `ongoing`, `finished`, `too early` or `error`.
+4. Imports the CSV files with `LOAD DATA LOCAL INFILE`. Rows that already exist are skipped, so products and expansions accumulate over time and prices are added for each day.
+5. Runs the matching: Scryfall cards without a Cardmarket id are linked when the link can be deduced unambiguously from the cards already linked (same card, same expansion).
+6. Records the run in the `logs` table with its status: `ongoing`, `finished`, `too early` or `error`.
 
 The database can be disabled to only produce the CSV files (see [Configuration](#configuration)).
 
@@ -64,7 +65,9 @@ temp     = ./
 level    = WARNING
 
 [Browser]
-# force the ChromeDriver major version if it does not match the installed Chrome
+# false: skip the Cardmarket expansions page; new expansions are created as "Unknown expansion <id>"
+scrape_expansions = true
+# force the ChromeDriver major version (detected automatically on Linux/macOS)
 # chrome_version = 149
 ```
 
@@ -82,7 +85,7 @@ Exit code is `0` on success and `1` when the data was already imported. With `le
 0 6 * * * cd /path/to/mkmpy && .venv/bin/python launch.py
 ```
 
-Warnings are printed for unexpected MySQL warnings during an import, for failed Cloudflare attempts on the expansions page (3 attempts) and for errors.
+Warnings are printed for unexpected MySQL warnings during an import, when the expansions page cannot be scraped (see [Cloudflare](#cloudflare-and-the-expansions-page)), when unknown expansions are created and for errors.
 
 ## Project structure
 
@@ -123,10 +126,28 @@ Links already present in `scryfall_products.card_market_id_id`, including the on
 
 ## Troubleshooting
 
-- **Expansions page blocked by Cloudflare**: run `python debug_expansions.py` (`--visible` to see the browser). It prints each step and saves the page HTML and a screenshot in `csvtemp/debug/`.
-- **ChromeDriver version mismatch**: set `chrome_version` in `[Browser]` to the major version of the installed Chrome.
+- **Expansions page blocked**: see [Cloudflare and the expansions page](#cloudflare-and-the-expansions-page).
+- **`session not created: cannot connect to chrome`**: the ChromeDriver does not match the installed Chrome. The version is detected automatically on Linux/macOS; on Windows, or if detection fails, set `chrome_version` in `[Browser]` to the major version of Chrome.
 - **`LOAD DATA LOCAL INFILE` refused**: enable `local_infile` on the MySQL server.
 - **Prices rejected during the import**: the price guide contains products that are not in the Singles product list. They are skipped because of the foreign key on `products` (shown with `level = INFO`).
+
+## Cloudflare and the expansions page
+
+The Cardmarket products and price guide are JSON files served without protection, but the expansion names are only available on the Singles page, which is behind Cloudflare. It is scraped with [undetected-chromedriver](https://github.com/ultrafunkamsterdam/undetected-chromedriver).
+
+What is needed for the scraping to pass:
+- **A consistent user-agent**: Cloudflare blocks a user-agent containing `HeadlessChrome` or announcing another Chrome version than the real one. The code reads the real user-agent of the installed Chrome, removes `Headless` and passes it at launch (changing it afterwards through CDP is not enough).
+- **A ChromeDriver matching Chrome**: undetected-chromedriver downloads the latest ChromeDriver by default, which does not start when Chrome is not up to date yet. The installed version is detected and passed to it.
+- **An IP that Cloudflare trusts**: from some servers (cloud/VPS IPs), Cloudflare always shows an interactive "Verify you are human" checkbox, in headless or visible mode (Xvfb). This is a deliberate protection and the project does not try to get around it.
+
+When the page cannot be scraped (3 attempts):
+- the import continues with the expansions already in the database, with a warning;
+- expansions used by the products but missing from the database are created as `Unknown expansion <id>`, and a warning lists them, so a cron mail is sent once per new expansion;
+- rename them by hand: `UPDATE expansions SET name = '...' WHERE id = <id>`. Expansions still named exactly `Unknown expansion <id>` are renamed automatically on the next successful scraping; the ones renamed by hand are left untouched.
+
+On a server that always gets the checkbox, set `scrape_expansions = false` in `[Browser]`: Chrome is not started and normal runs stay silent.
+
+To diagnose, run `python debug_expansions.py`. It prints the Chrome and ChromeDriver versions, the user-agent and the page title every 2 seconds, and saves the page HTML and a screenshot in `csvtemp/debug/`. Options: `--visible` (no headless, use `xvfb-run -a` on a server), `--no-ua` (Chrome's own user-agent), `--ua "<user-agent>"`, `--timeout <seconds>`.
 
 ## Tests
 
